@@ -11,18 +11,24 @@
         background: #f4f4f4;
         text-align: center;
         padding: 30px;
+        overflow: hidden;
     }
-    h1 {
-        margin-bottom: 10px;
-    }
+
+    h1 { margin-bottom: 10px; }
 
     #trial-info {
         font-size: 18px;
+        margin-bottom: 10px;
+    }
+
+    #condition-info {
+        font-size: 14px;
         margin-bottom: 20px;
+        color: #555;
     }
 
     #button-container {
-        margin-top: 40px;
+        margin-top: 60px;
     }
 
     .test-button {
@@ -35,33 +41,53 @@
         background-color: #007bff;
         color: white;
         touch-action: none;
+        position: relative;
     }
 
-    .test-button.release {
-        background-color: #28a745;
-    }
-
-    .test-button:active {
-        transform: scale(0.97);
-    }
+    .release { background-color: #28a745; }
 
     #feedback {
         margin-top: 30px;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
     }
 
     #results {
         margin-top: 40px;
         text-align: left;
-        max-width: 600px;
+        max-width: 700px;
         margin-left: auto;
         margin-right: auto;
         background: white;
         padding: 15px;
         border-radius: 8px;
         font-family: monospace;
-        font-size: 14px;
+        font-size: 13px;
+        white-space: pre;
+    }
+
+    @keyframes shakeX {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-6px); }
+        50% { transform: translateX(6px); }
+        75% { transform: translateX(-6px); }
+        100% { transform: translateX(0); }
+    }
+
+    @keyframes shakeY {
+        0% { transform: translateY(0); }
+        25% { transform: translateY(-6px); }
+        50% { transform: translateY(6px); }
+        75% { transform: translateY(-6px); }
+        100% { transform: translateY(0); }
+    }
+
+    @keyframes shakeXY {
+        0% { transform: translate(0,0); }
+        25% { transform: translate(-6px,6px); }
+        50% { transform: translate(6px,-6px); }
+        75% { transform: translate(-6px,-6px); }
+        100% { transform: translate(0,0); }
     }
 </style>
 </head>
@@ -69,53 +95,104 @@
 <body>
 
 <h1>Touch Event Comparison Test</h1>
-<p>Press the button as instructed. Each button activates differently.</p>
 
 <div id="trial-info"></div>
+<div id="condition-info"></div>
 
 <div id="button-container"></div>
-
 <div id="feedback"></div>
-
 <div id="results"></div>
 
 <script>
-/* -----------------------------
-   Trial Configuration
------------------------------ */
+/* =============================
+   Experiment Constants
+============================= */
 
-const trials = [
-    { type: "press", label: "Press" },
-    { type: "press", label: "Press" },
-    { type: "press", label: "Press" },
-    { type: "release", label: "Release to Press" },
-    { type: "release", label: "Release to Press" },
-    { type: "release", label: "Release to Press" }
+const EXPERIMENT_VERSION = "v2.0-2x7-touch-motion";
+const participantID = crypto.randomUUID();
+
+/* =============================
+   Factor Definitions
+============================= */
+
+const activationConditions = ["press", "release"];
+const motionConditions = [
+    "null",
+    "screen-x",
+    "button-x",
+    "screen-y",
+    "button-y",
+    "screen-xy",
+    "button-xy"
 ];
 
-// Randomize trial order
+/* =============================
+   Build 2x7 Design
+============================= */
+
+let trials = [];
+activationConditions.forEach(a => {
+    motionConditions.forEach(m => {
+        trials.push({ activation: a, motion: m });
+    });
+});
+
 trials.sort(() => Math.random() - 0.5);
+
+/* =============================
+   State Variables
+============================= */
 
 let currentTrial = 0;
 let startTime = null;
+let downTime = null;
+let trialActive = true;
 const results = [];
 
-/* -----------------------------
-   DOM Elements
------------------------------ */
+/* =============================
+   DOM References
+============================= */
 
 const trialInfo = document.getElementById("trial-info");
+const conditionInfo = document.getElementById("condition-info");
 const buttonContainer = document.getElementById("button-container");
 const feedback = document.getElementById("feedback");
 const resultsDiv = document.getElementById("results");
 
-/* -----------------------------
-   Load Trial
------------------------------ */
+/* =============================
+   Motion Handling
+============================= */
+
+function applyMotion(target, condition) {
+    document.body.style.animation = "";
+    target.style.animation = "";
+
+    if (condition === "null") return;
+
+    const isScreen = condition.startsWith("screen");
+    const axis = condition.split("-")[1];
+
+    let animation = axis === "x" ? "shakeX"
+                  : axis === "y" ? "shakeY"
+                  : "shakeXY";
+
+    const element = isScreen ? document.body : target;
+    element.style.animation = `${animation} 0.4s infinite`;
+}
+
+function clearMotion() {
+    document.body.style.animation = "";
+}
+
+/* =============================
+   Trial Loader
+============================= */
 
 function loadTrial() {
+    trialActive = true;
     buttonContainer.innerHTML = "";
     feedback.textContent = "";
+    clearMotion();
 
     if (currentTrial >= trials.length) {
         endExperiment();
@@ -123,39 +200,44 @@ function loadTrial() {
     }
 
     const trial = trials[currentTrial];
+
     trialInfo.textContent = `Trial ${currentTrial + 1} of ${trials.length}`;
+    conditionInfo.textContent =
+        `${trial.activation.toUpperCase()} × ${trial.motion.toUpperCase()}`;
 
     const button = document.createElement("button");
-    button.classList.add("test-button");
+    button.className = "test-button";
+    if (trial.activation === "release") button.classList.add("release");
 
-    if (trial.type === "release") {
-        button.classList.add("release");
-    }
-
-    button.textContent = trial.label;
+    button.textContent = trial.activation === "press"
+        ? "Press"
+        : "Release to Press";
 
     startTime = null;
+    downTime = null;
 
-    button.addEventListener("pointerdown", (e) => {
+    applyMotion(button, trial.motion);
+
+    button.addEventListener("pointerdown", e => {
         e.preventDefault();
+        if (!trialActive) return;
 
-        if (!startTime) {
-            startTime = performance.now();
-        }
+        downTime = performance.now();
+        if (!startTime) startTime = downTime;
 
-        if (trial.type === "press") {
+        if (trial.activation === "press") {
             registerResponse("pointerdown");
         }
     });
 
-    button.addEventListener("pointerup", (e) => {
+    button.addEventListener("pointerup", e => {
         e.preventDefault();
+        if (!trialActive) return;
 
-        if (!startTime) {
-            startTime = performance.now();
-        }
+        const upTime = performance.now();
+        if (!startTime) startTime = upTime;
 
-        if (trial.type === "release") {
+        if (trial.activation === "release") {
             registerResponse("pointerup");
         }
     });
@@ -163,48 +245,57 @@ function loadTrial() {
     buttonContainer.appendChild(button);
 }
 
-/* -----------------------------
-   Register Response
------------------------------ */
+/* =============================
+   Response Registration
+============================= */
 
 function registerResponse(eventType) {
-    const responseTime = performance.now() - startTime;
+    if (!trialActive) return;
+    trialActive = false;
+
+    const now = performance.now();
+    const rt = now - startTime;
+    const hold = downTime ? now - downTime : null;
 
     results.push({
+        participantID,
+        version: EXPERIMENT_VERSION,
         trial: currentTrial + 1,
-        condition: trials[currentTrial].type,
-        activationEvent: eventType,
-        responseTime: responseTime.toFixed(2)
+        activation: trials[currentTrial].activation,
+        motion: trials[currentTrial].motion,
+        event: eventType,
+        reactionTime: rt.toFixed(2),
+        holdDuration: hold ? hold.toFixed(2) : "NA"
     });
 
     feedback.textContent = `Activated on ${eventType}`;
+    clearMotion();
     currentTrial++;
 
     setTimeout(loadTrial, 700);
 }
 
-/* -----------------------------
+/* =============================
    End Experiment
------------------------------ */
+============================= */
 
 function endExperiment() {
     trialInfo.textContent = "Experiment Complete";
+    conditionInfo.textContent = "";
     buttonContainer.innerHTML = "";
     feedback.textContent = "";
 
-    let output = "Trial | Condition | Event | RT (ms)\n";
-    output += "----------------------------------\n";
-
+    let output = "participant,version,trial,activation,motion,event,rt_ms,hold_ms\n";
     results.forEach(r => {
-        output += `${r.trial} | ${r.condition} | ${r.activationEvent} | ${r.responseTime}\n`;
+        output += `${r.participantID},${r.version},${r.trial},${r.activation},${r.motion},${r.event},${r.reactionTime},${r.holdDuration}\n`;
     });
 
     resultsDiv.textContent = output;
 }
 
-/* -----------------------------
-   Start
------------------------------ */
+/* =============================
+   Start Experiment
+============================= */
 
 loadTrial();
 </script>
