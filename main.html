@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touch Down vs Touch Up Test</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        text-align: center;
+        padding: 30px;
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    #trial-info {
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+
+    #button-container {
+        margin-top: 40px;
+    }
+
+    .test-button {
+        width: 260px;
+        height: 80px;
+        font-size: 22px;
+        border: none;
+        border-radius: 12px;
+        margin: 20px;
+        background-color: #007bff;
+        color: white;
+        touch-action: none;
+    }
+
+    .test-button.release {
+        background-color: #28a745;
+    }
+
+    .test-button:active {
+        transform: scale(0.97);
+    }
+
+    #feedback {
+        margin-top: 30px;
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    #results {
+        margin-top: 40px;
+        text-align: left;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 14px;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Touch Event Comparison Test</h1>
+<p>Press the button as instructed. Each button activates differently.</p>
+
+<div id="trial-info"></div>
+
+<div id="button-container"></div>
+
+<div id="feedback"></div>
+
+<div id="results"></div>
+
+<script>
+/* -----------------------------
+   Trial Configuration
+----------------------------- */
+
+const trials = [
+    { type: "press", label: "Press" },
+    { type: "press", label: "Press" },
+    { type: "press", label: "Press" },
+    { type: "release", label: "Release to Press" },
+    { type: "release", label: "Release to Press" },
+    { type: "release", label: "Release to Press" }
+];
+
+// Randomize trial order
+trials.sort(() => Math.random() - 0.5);
+
+let currentTrial = 0;
+let startTime = null;
+const results = [];
+
+/* -----------------------------
+   DOM Elements
+----------------------------- */
+
+const trialInfo = document.getElementById("trial-info");
+const buttonContainer = document.getElementById("button-container");
+const feedback = document.getElementById("feedback");
+const resultsDiv = document.getElementById("results");
+
+/* -----------------------------
+   Load Trial
+----------------------------- */
+
+function loadTrial() {
+    buttonContainer.innerHTML = "";
+    feedback.textContent = "";
+
+    if (currentTrial >= trials.length) {
+        endExperiment();
+        return;
+    }
+
+    const trial = trials[currentTrial];
+    trialInfo.textContent = `Trial ${currentTrial + 1} of ${trials.length}`;
+
+    const button = document.createElement("button");
+    button.classList.add("test-button");
+
+    if (trial.type === "release") {
+        button.classList.add("release");
+    }
+
+    button.textContent = trial.label;
+
+    startTime = null;
+
+    button.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+
+        if (!startTime) {
+            startTime = performance.now();
+        }
+
+        if (trial.type === "press") {
+            registerResponse("pointerdown");
+        }
+    });
+
+    button.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+
+        if (!startTime) {
+            startTime = performance.now();
+        }
+
+        if (trial.type === "release") {
+            registerResponse("pointerup");
+        }
+    });
+
+    buttonContainer.appendChild(button);
+}
+
+/* -----------------------------
+   Register Response
+----------------------------- */
+
+function registerResponse(eventType) {
+    const responseTime = performance.now() - startTime;
+
+    results.push({
+        trial: currentTrial + 1,
+        condition: trials[currentTrial].type,
+        activationEvent: eventType,
+        responseTime: responseTime.toFixed(2)
+    });
+
+    feedback.textContent = `Activated on ${eventType}`;
+    currentTrial++;
+
+    setTimeout(loadTrial, 700);
+}
+
+/* -----------------------------
+   End Experiment
+----------------------------- */
+
+function endExperiment() {
+    trialInfo.textContent = "Experiment Complete";
+    buttonContainer.innerHTML = "";
+    feedback.textContent = "";
+
+    let output = "Trial | Condition | Event | RT (ms)\n";
+    output += "----------------------------------\n";
+
+    results.forEach(r => {
+        output += `${r.trial} | ${r.condition} | ${r.activationEvent} | ${r.responseTime}\n`;
+    });
+
+    resultsDiv.textContent = output;
+}
+
+/* -----------------------------
+   Start
+----------------------------- */
+
+loadTrial();
+</script>
+
+</body>
+</html>
