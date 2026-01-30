@@ -31,6 +31,7 @@ body {
     gap: 15px;
     max-width: 400px;
     margin: 0 auto;
+    will-change: transform;
 }
 
 .test-button {
@@ -38,6 +39,7 @@ body {
     border-radius: 12px;
     border: none;
     touch-action: none;
+    will-change: transform;
 }
 
 .target {
@@ -65,7 +67,7 @@ body {
 
 <script>
 /* ============================
-   EXPERIMENT CONFIG
+   CONFIG
 ============================ */
 
 const ACTIVATION = ["press", "release"];
@@ -81,17 +83,14 @@ const PERTURBATION = [
 
 const trials = [];
 ACTIVATION.forEach(a => {
-    PERTURBATION.forEach(p => {
-        trials.push({ activation: a, perturbation: p });
-    });
+    PERTURBATION.forEach(p => trials.push({ activation: a, perturbation: p }));
 });
-
 trials.sort(() => Math.random() - 0.5);
 
 let currentTrial = 0;
 let startTime = null;
-let pointerDownTarget = null;
 let firstDistractor = null;
+let animationId = null;
 
 const results = [];
 
@@ -113,22 +112,43 @@ function randomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
-function applyPerturbation(type) {
+function stopPerturbation() {
+    if (animationId) cancelAnimationFrame(animationId);
     container.style.transform = "";
-
-    if (type.startsWith("screen")) {
-        const dx = type.includes("x") ? Math.random() * 10 - 5 : 0;
-        const dy = type.includes("y") ? Math.random() * 10 - 5 : 0;
-        container.style.transform = `translate(${dx}px, ${dy}px)`;
-    }
+    document.querySelectorAll(".test-button").forEach(b => b.style.transform = "");
 }
 
-function shakeButton(btn, type) {
-    if (!type.startsWith("button")) return;
+/* ============================
+   PERTURBATION ENGINE
+============================ */
 
-    const dx = type.includes("x") ? Math.random() * 6 - 3 : 0;
-    const dy = type.includes("y") ? Math.random() * 6 - 3 : 0;
-    btn.style.transform = `translate(${dx}px, ${dy}px)`;
+function startPerturbation(type) {
+    if (type === "null") return;
+
+    let t = 0;
+
+    function animate() {
+        t += 0.1;
+
+        if (type.startsWith("screen")) {
+            const dx = type.includes("x") ? Math.sin(t) * 6 : 0;
+            const dy = type.includes("y") ? Math.cos(t) * 6 : 0;
+            container.style.transform = `translate(${dx}px, ${dy}px)`;
+        }
+
+        if (type.startsWith("button")) {
+            document.querySelectorAll(".test-button").forEach((btn, i) => {
+                const phase = t + i;
+                const dx = type.includes("x") ? Math.sin(phase) * 5 : 0;
+                const dy = type.includes("y") ? Math.cos(phase) * 5 : 0;
+                btn.style.transform = `translate(${dx}px, ${dy}px)`;
+            });
+        }
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    animate();
 }
 
 /* ============================
@@ -136,9 +156,9 @@ function shakeButton(btn, type) {
 ============================ */
 
 function loadTrial() {
+    stopPerturbation();
     container.innerHTML = "";
     firstDistractor = null;
-    pointerDownTarget = null;
     startTime = null;
 
     if (currentTrial >= trials.length) {
@@ -147,20 +167,20 @@ function loadTrial() {
     }
 
     const trial = trials[currentTrial];
-    trialInfo.textContent = `Trial ${currentTrial + 1} / ${trials.length}`;
 
     instructions.textContent =
         trial.activation === "press"
         ? "Press the GREEN button. Avoid all other colors."
         : "Press anywhere, RELEASE on the GREEN button. Avoid all other colors.";
 
-    applyPerturbation(trial.perturbation);
+    trialInfo.textContent = `Trial ${currentTrial + 1} / ${trials.length}`;
 
     const targetIndex = Math.floor(Math.random() * 8);
 
     for (let i = 0; i < 8; i++) {
         const btn = document.createElement("div");
         btn.classList.add("test-button");
+        btn.dataset.index = i;
 
         if (i === targetIndex) {
             btn.classList.add("target");
@@ -170,57 +190,47 @@ function loadTrial() {
             btn.dataset.role = "distractor";
         }
 
-        btn.dataset.index = i;
-        shakeButton(btn, trial.perturbation);
-
         container.appendChild(btn);
     }
+
+    startPerturbation(trial.perturbation);
 }
 
 /* ============================
-   GLOBAL POINTER HANDLING
+   POINTER HANDLING
 ============================ */
 
 document.addEventListener("pointerdown", e => {
     const el = document.elementFromPoint(e.clientX, e.clientY);
-
     if (!startTime) startTime = performance.now();
 
-    if (el && el.classList.contains("test-button")) {
-        pointerDownTarget = el;
+    if (el?.dataset?.role === "distractor" && !firstDistractor) {
+        firstDistractor = el.dataset.index;
+    }
 
-        if (el.dataset.role === "distractor" && !firstDistractor) {
-            firstDistractor = el.dataset.index;
-        }
-
-        if (trials[currentTrial].activation === "press" &&
-            el.dataset.role === "target") {
-            registerResponse("pointerdown", el.dataset.index);
-        }
+    if (
+        trials[currentTrial].activation === "press" &&
+        el?.dataset?.role === "target"
+    ) {
+        registerResponse("pointerdown", el.dataset.index, false);
     }
 });
 
 document.addEventListener("pointerup", e => {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-
     if (trials[currentTrial].activation !== "release") return;
 
-    const correct = el &&
-        el.classList.contains("test-button") &&
-        el.dataset.role === "target";
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const correct = el?.dataset?.role === "target";
 
-    registerResponse(
-        "pointerup",
-        el ? el.dataset.index : null,
-        !correct
-    );
+    registerResponse("pointerup", el?.dataset?.index ?? null, !correct);
 });
 
 /* ============================
-   LOG RESPONSE
+   LOGGING
 ============================ */
 
-function registerResponse(event, index, miss = false) {
+function registerResponse(event, index, miss) {
+    stopPerturbation();
     const rt = performance.now() - startTime;
     const trial = trials[currentTrial];
 
@@ -229,7 +239,7 @@ function registerResponse(event, index, miss = false) {
         activation: trial.activation,
         perturbation: trial.perturbation,
         event,
-        responseIndex: index,
+        index,
         miss,
         firstDistractor,
         rt: rt.toFixed(2)
@@ -244,17 +254,18 @@ function registerResponse(event, index, miss = false) {
 ============================ */
 
 function endExperiment() {
+    stopPerturbation();
     container.innerHTML = "";
     instructions.textContent = "Experiment complete";
 
-    let txt = "trial | activation | perturbation | event | index | miss | firstDistractor | RT\n";
-    txt += "-------------------------------------------------------------------------------\n";
+    let out = "trial | activation | perturbation | event | index | miss | firstDistractor | RT\n";
+    out += "-----------------------------------------------------------------------------\n";
 
     results.forEach(r => {
-        txt += `${r.trial} | ${r.activation} | ${r.perturbation} | ${r.event} | ${r.responseIndex} | ${r.miss} | ${r.firstDistractor} | ${r.rt}\n`;
+        out += `${r.trial} | ${r.activation} | ${r.perturbation} | ${r.event} | ${r.index} | ${r.miss} | ${r.firstDistractor} | ${r.rt}\n`;
     });
 
-    resultsDiv.textContent = txt;
+    resultsDiv.textContent = out;
 }
 
 /* ============================
