@@ -95,7 +95,7 @@ body {
    Constants
 ============================= */
 
-const EXPERIMENT_VERSION = "v3.0-2x7-target-distractor";
+const EXPERIMENT_VERSION = "v3.1-hit-test-fix";
 const participantID = crypto.randomUUID();
 
 const activations = ["press","release"];
@@ -117,7 +117,6 @@ let currentTrial = 0;
 let startTime = null;
 let downTime = null;
 let trialActive = true;
-
 let firstDistractor = null;
 let missCount = 0;
 
@@ -140,22 +139,36 @@ const resultsDiv = document.getElementById("results");
 function applyMotion(el, cond) {
     el.style.animation = "";
     document.body.style.animation = "";
-
     if (cond === "null") return;
 
     const axis = cond.split("-")[1];
     const anim = axis === "x" ? "shakeX" :
                  axis === "y" ? "shakeY" : "shakeXY";
 
-    if (cond.startsWith("screen")) {
-        document.body.style.animation = `${anim} 0.4s infinite`;
-    } else {
-        el.style.animation = `${anim} 0.4s infinite`;
-    }
+    cond.startsWith("screen")
+        ? document.body.style.animation = `${anim} 0.4s infinite`
+        : el.style.animation = `${anim} 0.4s infinite`;
 }
 
 function clearMotion() {
     document.body.style.animation = "";
+}
+
+/* =============================
+   HIT TEST (CRITICAL FIX)
+============================= */
+
+function releasedOnButton(event, button) {
+    const rect = button.getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
+
+    return (
+        x >= rect.left &&
+        x <= rect.right &&
+        y >= rect.top &&
+        y <= rect.bottom
+    );
 }
 
 /* =============================
@@ -184,8 +197,7 @@ function loadTrial() {
 
     const colors = ["red","blue","orange","purple"];
     const targetIndex = Math.floor(Math.random()*8);
-
-    let buttons = [];
+    const buttons = [];
 
     for (let i=0;i<8;i++) {
         const btn = document.createElement("button");
@@ -194,44 +206,35 @@ function loadTrial() {
 
         if (i === targetIndex) {
             btn.classList.add("target");
-            btn.dataset.target = "true";
             btn.textContent = trial.activation === "press" ? "Press" : "Release";
         } else {
             const c = colors[Math.floor(Math.random()*colors.length)];
             btn.classList.add(c);
-            btn.dataset.target = "false";
             btn.dataset.color = c;
         }
 
-        buttonContainer.appendChild(btn);
-        buttons.push(btn);
-        applyMotion(btn, trial.motion);
-
-        btn.addEventListener("pointerdown", e => {
+        btn.addEventListener("pointerdown", () => {
             if (!trialActive) return;
-            if (btn.dataset.target === "false" && !firstDistractor) {
-                firstDistractor = {
-                    index: i,
-                    color: btn.dataset.color
-                };
+            if (i !== targetIndex && !firstDistractor) {
+                firstDistractor = { index:i, color:btn.dataset.color };
             }
         });
+
+        applyMotion(btn, trial.motion);
+        buttonContainer.appendChild(btn);
+        buttons.push(btn);
     }
 
     const targetButton = buttons[targetIndex];
 
     if (trial.activation === "press") {
-
         targetButton.addEventListener("pointerdown", e => {
             e.preventDefault();
-            if (!trialActive) return;
             downTime = performance.now();
             startTime = downTime;
             registerResponse("pointerdown", targetIndex);
         });
-
     } else {
-
         document.addEventListener("pointerdown", globalDown);
         document.addEventListener("pointerup", globalUp);
 
@@ -244,7 +247,7 @@ function loadTrial() {
         function globalUp(e) {
             if (!trialActive) return;
 
-            if (e.target === targetButton) {
+            if (releasedOnButton(e, targetButton)) {
                 registerResponse("pointerup", targetIndex);
             } else {
                 missCount++;
@@ -285,10 +288,8 @@ function registerResponse(eventType, targetIndex) {
         misses: missCount
     });
 
-    feedback.textContent = "Trial Complete";
     clearMotion();
     currentTrial++;
-
     setTimeout(loadTrial,700);
 }
 
@@ -298,7 +299,6 @@ function registerResponse(eventType, targetIndex) {
 
 function endExperiment() {
     trialInfo.textContent = "Experiment Complete";
-    conditionInfo.textContent = "";
     buttonContainer.innerHTML = "";
 
     let csv = "participant,version,trial,activation,motion,targetIndex,targetRow,targetCol,event,rt_ms,hold_ms,firstDistractorIndex,firstDistractorColor,misses\n";
@@ -308,10 +308,6 @@ function endExperiment() {
 
     resultsDiv.textContent = csv;
 }
-
-/* =============================
-   Start
-============================= */
 
 loadTrial();
 </script>
