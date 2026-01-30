@@ -137,19 +137,19 @@ function stopPerturbation() {
 }
 
 /* ============================
-   VIBRATION ENGINE (FIXED)
+   VIBRATION ENGINE
 ============================ */
 
 function startPerturbation(type) {
     if (type === "null") return;
 
     function animate() {
-        // VIBRATION SETTINGS
-        // High intensity jitter (pixels)
-        const intensity = 6; 
+        // --- TUNING PARAMETERS ---
+        // 10px is light 
+        // 15px+ is heavy
+        const intensity = 12; 
 
-        // Generate random jitter (noise) instead of sine waves
-        // This creates a "shaking" effect rather than "floating"
+        // Generate high-frequency random jitter
         const jitterX = (Math.random() - 0.5) * intensity;
         const jitterY = (Math.random() - 0.5) * intensity;
 
@@ -159,21 +159,18 @@ function startPerturbation(type) {
         const dx = useX ? jitterX : 0;
         const dy = useY ? jitterY : 0;
 
-        // 1. Screen Shake (Moves the whole container)
+        // Apply to Screen
         if (type.startsWith("screen")) {
             container.style.transform = `translate(${dx}px, ${dy}px)`;
         }
 
-        // 2. Button Shake (Moves buttons individually)
+        // Apply to Buttons
         if (type.startsWith("button")) {
             document.querySelectorAll(".test-button").forEach((btn) => {
-                // Each button gets its own random jitter for chaotic vibration
-                const bJitterX = (Math.random() - 0.5) * intensity;
-                const bJitterY = (Math.random() - 0.5) * intensity;
-                
-                const bdx = useX ? bJitterX : 0;
-                const bdy = useY ? bJitterY : 0;
-                
+                // Individual jitter per button makes it feel more like 
+                // the user's hand is shaking relative to the screen.
+                const bdx = useX ? (Math.random() - 0.5) * intensity : 0;
+                const bdy = useY ? (Math.random() - 0.5) * intensity : 0;
                 btn.style.transform = `translate(${bdx}px, ${bdy}px)`;
             });
         }
