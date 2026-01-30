@@ -3,154 +3,128 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Touch Down vs Touch Up Test</title>
+<title>Touch Interaction Experiment</title>
 
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f4f4f4;
-        text-align: center;
-        padding: 30px;
-        overflow: hidden;
-    }
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    text-align: center;
+    padding: 30px;
+    overflow: hidden;
+}
 
-    h1 { margin-bottom: 10px; }
+#trial-info { font-size: 18px; }
+#condition-info { font-size: 14px; color: #555; margin-bottom: 20px; }
 
-    #trial-info {
-        font-size: 18px;
-        margin-bottom: 10px;
-    }
+#button-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    max-width: 600px;
+    margin: 60px auto;
+}
 
-    #condition-info {
-        font-size: 14px;
-        margin-bottom: 20px;
-        color: #555;
-    }
+.test-button {
+    height: 80px;
+    font-size: 18px;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    touch-action: none;
+}
 
-    #button-container {
-        margin-top: 60px;
-    }
+.red { background:#dc3545; }
+.blue { background:#007bff; }
+.orange { background:#fd7e14; }
+.purple { background:#6f42c1; }
 
-    .test-button {
-        width: 260px;
-        height: 80px;
-        font-size: 22px;
-        border: none;
-        border-radius: 12px;
-        margin: 20px;
-        background-color: #007bff;
-        color: white;
-        touch-action: none;
-        position: relative;
-    }
+.target { background:#28a745; }
 
-    .release { background-color: #28a745; }
+#feedback { margin-top:20px; font-weight:bold; }
 
-    #feedback {
-        margin-top: 30px;
-        font-size: 18px;
-        font-weight: bold;
-    }
+#results {
+    margin-top:40px;
+    max-width:800px;
+    margin-left:auto;
+    margin-right:auto;
+    background:white;
+    padding:15px;
+    border-radius:8px;
+    font-family:monospace;
+    font-size:13px;
+    white-space:pre;
+}
 
-    #results {
-        margin-top: 40px;
-        text-align: left;
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        font-family: monospace;
-        font-size: 13px;
-        white-space: pre;
-    }
-
-    @keyframes shakeX {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-6px); }
-        50% { transform: translateX(6px); }
-        75% { transform: translateX(-6px); }
-        100% { transform: translateX(0); }
-    }
-
-    @keyframes shakeY {
-        0% { transform: translateY(0); }
-        25% { transform: translateY(-6px); }
-        50% { transform: translateY(6px); }
-        75% { transform: translateY(-6px); }
-        100% { transform: translateY(0); }
-    }
-
-    @keyframes shakeXY {
-        0% { transform: translate(0,0); }
-        25% { transform: translate(-6px,6px); }
-        50% { transform: translate(6px,-6px); }
-        75% { transform: translate(-6px,-6px); }
-        100% { transform: translate(0,0); }
-    }
+/* Motion */
+@keyframes shakeX {
+    0%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    50%{transform:translateX(6px)}
+    75%{transform:translateX(-6px)}
+    100%{transform:translateX(0)}
+}
+@keyframes shakeY {
+    0%{transform:translateY(0)}
+    25%{transform:translateY(-6px)}
+    50%{transform:translateY(6px)}
+    75%{transform:translateY(-6px)}
+    100%{transform:translateY(0)}
+}
+@keyframes shakeXY {
+    0%{transform:translate(0,0)}
+    25%{transform:translate(-6px,6px)}
+    50%{transform:translate(6px,-6px)}
+    75%{transform:translate(-6px,-6px)}
+    100%{transform:translate(0,0)}
+}
 </style>
 </head>
 
 <body>
 
-<h1>Touch Event Comparison Test</h1>
-
+<h1>Touch Interaction Experiment</h1>
 <div id="trial-info"></div>
 <div id="condition-info"></div>
-
 <div id="button-container"></div>
 <div id="feedback"></div>
 <div id="results"></div>
 
 <script>
 /* =============================
-   Experiment Constants
+   Constants
 ============================= */
 
-const EXPERIMENT_VERSION = "v2.0-2x7-touch-motion";
+const EXPERIMENT_VERSION = "v3.0-2x7-target-distractor";
 const participantID = crypto.randomUUID();
 
-/* =============================
-   Factor Definitions
-============================= */
-
-const activationConditions = ["press", "release"];
-const motionConditions = [
-    "null",
-    "screen-x",
-    "button-x",
-    "screen-y",
-    "button-y",
-    "screen-xy",
-    "button-xy"
+const activations = ["press","release"];
+const motions = [
+    "null","screen-x","button-x",
+    "screen-y","button-y",
+    "screen-xy","button-xy"
 ];
 
-/* =============================
-   Build 2x7 Design
-============================= */
-
 let trials = [];
-activationConditions.forEach(a => {
-    motionConditions.forEach(m => {
-        trials.push({ activation: a, motion: m });
-    });
-});
-
+activations.forEach(a => motions.forEach(m => trials.push({activation:a,motion:m})));
 trials.sort(() => Math.random() - 0.5);
 
 /* =============================
-   State Variables
+   State
 ============================= */
 
 let currentTrial = 0;
 let startTime = null;
 let downTime = null;
 let trialActive = true;
+
+let firstDistractor = null;
+let missCount = 0;
+
 const results = [];
 
 /* =============================
-   DOM References
+   DOM
 ============================= */
 
 const trialInfo = document.getElementById("trial-info");
@@ -160,24 +134,24 @@ const feedback = document.getElementById("feedback");
 const resultsDiv = document.getElementById("results");
 
 /* =============================
-   Motion Handling
+   Motion
 ============================= */
 
-function applyMotion(target, condition) {
+function applyMotion(el, cond) {
+    el.style.animation = "";
     document.body.style.animation = "";
-    target.style.animation = "";
 
-    if (condition === "null") return;
+    if (cond === "null") return;
 
-    const isScreen = condition.startsWith("screen");
-    const axis = condition.split("-")[1];
+    const axis = cond.split("-")[1];
+    const anim = axis === "x" ? "shakeX" :
+                 axis === "y" ? "shakeY" : "shakeXY";
 
-    let animation = axis === "x" ? "shakeX"
-                  : axis === "y" ? "shakeY"
-                  : "shakeXY";
-
-    const element = isScreen ? document.body : target;
-    element.style.animation = `${animation} 0.4s infinite`;
+    if (cond.startsWith("screen")) {
+        document.body.style.animation = `${anim} 0.4s infinite`;
+    } else {
+        el.style.animation = `${anim} 0.4s infinite`;
+    }
 }
 
 function clearMotion() {
@@ -199,102 +173,144 @@ function loadTrial() {
         return;
     }
 
-    const trial = trials[currentTrial];
-
-    trialInfo.textContent = `Trial ${currentTrial + 1} of ${trials.length}`;
-    conditionInfo.textContent =
-        `${trial.activation.toUpperCase()} × ${trial.motion.toUpperCase()}`;
-
-    const button = document.createElement("button");
-    button.className = "test-button";
-    if (trial.activation === "release") button.classList.add("release");
-
-    button.textContent = trial.activation === "press"
-        ? "Press"
-        : "Release to Press";
-
     startTime = null;
     downTime = null;
+    firstDistractor = null;
+    missCount = 0;
 
-    applyMotion(button, trial.motion);
+    const trial = trials[currentTrial];
+    trialInfo.textContent = `Trial ${currentTrial+1} / ${trials.length}`;
+    conditionInfo.textContent = `${trial.activation.toUpperCase()} × ${trial.motion.toUpperCase()}`;
 
-    button.addEventListener("pointerdown", e => {
-        e.preventDefault();
-        if (!trialActive) return;
+    const colors = ["red","blue","orange","purple"];
+    const targetIndex = Math.floor(Math.random()*8);
 
-        downTime = performance.now();
-        if (!startTime) startTime = downTime;
+    let buttons = [];
 
-        if (trial.activation === "press") {
-            registerResponse("pointerdown");
+    for (let i=0;i<8;i++) {
+        const btn = document.createElement("button");
+        btn.className = "test-button";
+        btn.dataset.index = i;
+
+        if (i === targetIndex) {
+            btn.classList.add("target");
+            btn.dataset.target = "true";
+            btn.textContent = trial.activation === "press" ? "Press" : "Release";
+        } else {
+            const c = colors[Math.floor(Math.random()*colors.length)];
+            btn.classList.add(c);
+            btn.dataset.target = "false";
+            btn.dataset.color = c;
         }
-    });
 
-    button.addEventListener("pointerup", e => {
-        e.preventDefault();
-        if (!trialActive) return;
+        buttonContainer.appendChild(btn);
+        buttons.push(btn);
+        applyMotion(btn, trial.motion);
 
-        const upTime = performance.now();
-        if (!startTime) startTime = upTime;
+        btn.addEventListener("pointerdown", e => {
+            if (!trialActive) return;
+            if (btn.dataset.target === "false" && !firstDistractor) {
+                firstDistractor = {
+                    index: i,
+                    color: btn.dataset.color
+                };
+            }
+        });
+    }
 
-        if (trial.activation === "release") {
-            registerResponse("pointerup");
+    const targetButton = buttons[targetIndex];
+
+    if (trial.activation === "press") {
+
+        targetButton.addEventListener("pointerdown", e => {
+            e.preventDefault();
+            if (!trialActive) return;
+            downTime = performance.now();
+            startTime = downTime;
+            registerResponse("pointerdown", targetIndex);
+        });
+
+    } else {
+
+        document.addEventListener("pointerdown", globalDown);
+        document.addEventListener("pointerup", globalUp);
+
+        function globalDown() {
+            if (!trialActive) return;
+            downTime = performance.now();
+            startTime = downTime;
         }
-    });
 
-    buttonContainer.appendChild(button);
+        function globalUp(e) {
+            if (!trialActive) return;
+
+            if (e.target === targetButton) {
+                registerResponse("pointerup", targetIndex);
+            } else {
+                missCount++;
+            }
+
+            document.removeEventListener("pointerdown", globalDown);
+            document.removeEventListener("pointerup", globalUp);
+        }
+    }
 }
 
 /* =============================
-   Response Registration
+   Register Response
 ============================= */
 
-function registerResponse(eventType) {
+function registerResponse(eventType, targetIndex) {
     if (!trialActive) return;
     trialActive = false;
 
     const now = performance.now();
     const rt = now - startTime;
-    const hold = downTime ? now - downTime : null;
+    const hold = downTime ? now - downTime : "NA";
 
     results.push({
         participantID,
         version: EXPERIMENT_VERSION,
-        trial: currentTrial + 1,
+        trial: currentTrial+1,
         activation: trials[currentTrial].activation,
         motion: trials[currentTrial].motion,
-        event: eventType,
+        targetIndex,
+        targetRow: Math.floor(targetIndex/2),
+        targetCol: targetIndex % 2,
+        eventType,
         reactionTime: rt.toFixed(2),
-        holdDuration: hold ? hold.toFixed(2) : "NA"
+        holdDuration: hold !== "NA" ? hold.toFixed(2) : "NA",
+        firstDistractorIndex: firstDistractor ? firstDistractor.index : "NA",
+        firstDistractorColor: firstDistractor ? firstDistractor.color : "NA",
+        misses: missCount
     });
 
-    feedback.textContent = `Activated on ${eventType}`;
+    feedback.textContent = "Trial Complete";
     clearMotion();
     currentTrial++;
 
-    setTimeout(loadTrial, 700);
+    setTimeout(loadTrial,700);
 }
 
 /* =============================
-   End Experiment
+   End
 ============================= */
 
 function endExperiment() {
     trialInfo.textContent = "Experiment Complete";
     conditionInfo.textContent = "";
     buttonContainer.innerHTML = "";
-    feedback.textContent = "";
 
-    let output = "participant,version,trial,activation,motion,event,rt_ms,hold_ms\n";
+    let csv = "participant,version,trial,activation,motion,targetIndex,targetRow,targetCol,event,rt_ms,hold_ms,firstDistractorIndex,firstDistractorColor,misses\n";
     results.forEach(r => {
-        output += `${r.participantID},${r.version},${r.trial},${r.activation},${r.motion},${r.event},${r.reactionTime},${r.holdDuration}\n`;
+        csv += `${r.participantID},${r.version},${r.trial},${r.activation},${r.motion},${r.targetIndex},${r.targetRow},${r.targetCol},${r.eventType},${r.reactionTime},${r.holdDuration},${r.firstDistractorIndex},${r.firstDistractorColor},${r.misses}\n`;
     });
 
-    resultsDiv.textContent = output;
+    resultsDiv.textContent = csv;
 }
 
 /* =============================
-   Start Experiment
+   Start
 ============================= */
 
 loadTrial();
