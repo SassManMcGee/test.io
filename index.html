@@ -3,122 +3,54 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Touch Interaction Experiment</title>
+<title>Touch Interaction Experiment - Fitts' Law</title>
 
 <style>
-/* RESET & LAYOUT */
 body, html {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden; /* No scrolling allowed */
-    background: #f4f4f4;
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #f4f4f4;
     font-family: 'Segoe UI', Arial, sans-serif;
-    user-select: none; /* No text selection */
-    -webkit-user-select: none;
-    touch-action: none; /* Kills all browser gestures (zoom/scroll) */
+    user-select: none; -webkit-user-select: none; touch-action: none;
 }
 
-/* START SCREEN (Overlay) */
 #start-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: white;
-    z-index: 9999; /* Always on top */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 20px;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: white; z-index: 9999; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 20px;
 }
 
 #start-button {
-    padding: 15px 40px;
-    font-size: 24px;
-    background: #27ae60;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 30px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    padding: 15px 40px; font-size: 24px; background: #27ae60;
+    color: white; border: none; border-radius: 8px; cursor: pointer;
+    margin-top: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
 }
 
-#start-button:active {
-    transform: scale(0.98);
-}
+#ui-container { padding-top: 20px; display: none; }
+#instructions { font-size: 20px; margin-bottom: 5px; font-weight: bold; min-height: 30px; }
+#trial-info { font-size: 14px; color: #555; margin-bottom: 20px; }
 
-/* EXPERIMENT UI */
-#ui-container {
-    padding-top: 20px;
-    display: none; /* Hidden until start */
-}
-
-#instructions {
-    font-size: 20px;
-    margin-bottom: 5px;
-    font-weight: bold;
-    min-height: 30px;
-}
-
-#trial-info {
-    font-size: 14px;
-    color: #555;
-    margin-bottom: 20px;
-}
-
-/* BUTTON GRID */
 #button-container {
-    display: grid;
-    grid-template-columns: repeat(2, 140px);
-    grid-template-rows: repeat(4, 90px);
-    gap: 15px;
-    justify-content: center;
-    margin: 0 auto;
-    will-change: transform;
-    pointer-events: auto;
+    display: grid; grid-template-columns: repeat(2, 140px);
+    grid-template-rows: repeat(4, 90px); gap: 15px;
+    justify-content: center; margin: 0 auto; will-change: transform;
 }
 
 .test-button {
-    width: 100%;
-    height: 100%;
-    border-radius: 12px;
-    border: 2px solid rgba(0,0,0,0.1);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    box-sizing: border-box;
+    width: 100%; height: 100%; border-radius: 12px;
+    border: 2px solid rgba(0,0,0,0.1); box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-sizing: border-box; transition: background-color 0.1s;
 }
 
-.target {
-    background-color: #2ecc71 !important; /* Green */
-    border: 4px solid #218c53;
-}
+.target { background-color: #2ecc71 !important; border: 4px solid #218c53; }
 
-/* RESULTS TABLE */
 #results-area {
-    display: none; /* Hidden until end */
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: white;
-    padding: 20px;
-    box-sizing: border-box;
-    overflow-y: auto;
-    text-align: left;
+    display: none; position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; background: white;
+    padding: 20px; box-sizing: border-box; overflow-y: auto;
 }
 
-#results-text {
-    font-family: monospace;
-    white-space: pre;
-    font-size: 12px;
-    line-height: 1.5;
-}
+#results-text { width: 100%; height: 70%; font-family: monospace; font-size: 11px; }
 </style>
 </head>
 
@@ -126,14 +58,7 @@ body, html {
 
 <div id="start-screen">
     <h1>Touch Interaction Study</h1>
-    <p style="max-width: 500px; line-height: 1.5;">
-        You will perform a series of button selections while the screen vibrates.
-    </p>
-    <ul style="text-align: left; display: inline-block;">
-        <li><b>Press:</b> Tap the GREEN button.</li>
-        <li><b>Release:</b> Touch anywhere, drag, and RELEASE on the GREEN button.</li>
-    </ul>
-    <br>
+    <p>Target: Green Button. <br>Measure: Accuracy + Fitts' Law ID.</p>
     <button id="start-button">Start Experiment</button>
 </div>
 
@@ -145,89 +70,42 @@ body, html {
 
 <div id="results-area">
     <h3>Experiment Complete</h3>
-    <p>Please copy the data below:</p>
-    <textarea id="results-text" style="width: 100%; height: 80%;"></textarea>
+    <textarea id="results-text" readonly></textarea>
+    <br><br>
+    <button onclick="location.reload()">Restart</button>
 </div>
 
 <script>
-/* ============================
-   CONFIG
-============================ */
-
 const ACTIVATION = ["press", "release"];
-const PERTURBATION = [
-    "null",       // Baseline
-    "screen-x",   // Screen Shake X
-    "button-x",   // Button Shake X
-    "screen-y",   // Screen Shake Y
-    "button-y",   // Button Shake Y
-    "screen-xy",  // Screen Shake X+Y
-    "button-xy"   // Button Shake X+Y
-];
-
-// Generate Trial Queue
+const PERTURBATION = ["null", "screen-x", "button-x", "screen-y", "button-y", "screen-xy", "button-xy"];
 const trials = [];
-ACTIVATION.forEach(a => {
-    PERTURBATION.forEach(p => trials.push({ activation: a, perturbation: p }));
-});
-
-// Randomize
+ACTIVATION.forEach(a => PERTURBATION.forEach(p => trials.push({ activation: a, perturbation: p })));
 trials.sort(() => Math.random() - 0.5);
 
-let currentTrial = 0;
-let startTime = null; 
-let animationId = null;
+let currentTrial = 0, startTime = null, animationId = null;
 const results = [];
 
-/* ============================
-   DOM ELEMENTS
-============================ */
-
-const startScreen = document.getElementById("start-screen");
-const uiContainer = document.getElementById("ui-container");
-const instructions = document.getElementById("instructions");
-const trialInfo = document.getElementById("trial-info");
 const container = document.getElementById("button-container");
-const resultsArea = document.getElementById("results-area");
 const resultsText = document.getElementById("results-text");
 
-/* ============================
-   START LOGIC
-============================ */
-
 document.getElementById("start-button").addEventListener("click", () => {
-    startScreen.style.display = "none";
-    uiContainer.style.display = "block";
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("ui-container").style.display = "block";
     loadTrial();
 });
 
-/* ============================
-   VIBRATION ENGINE
-============================ */
-
 function startPerturbation(type) {
     if (type === "null") return;
-
     function animate() {
-        // 16px = Heavy
         const intensity = 16; 
-        
-        // Random Jitter (Noise)
         const jitterX = (Math.random() - 0.5) * intensity;
         const jitterY = (Math.random() - 0.5) * intensity;
+        const useX = type.includes("x"), useY = type.includes("y");
+        const dx = useX ? jitterX : 0, dy = useY ? jitterY : 0;
 
-        const useX = type.includes("x");
-        const useY = type.includes("y");
-
-        const dx = useX ? jitterX : 0;
-        const dy = useY ? jitterY : 0;
-
-        if (type.startsWith("screen")) {
-            container.style.transform = `translate(${dx}px, ${dy}px)`;
-        }
-
+        if (type.startsWith("screen")) container.style.transform = `translate(${dx}px, ${dy}px)`;
         if (type.startsWith("button")) {
-            document.querySelectorAll(".test-button").forEach((btn) => {
+            document.querySelectorAll(".test-button").forEach(btn => {
                 const bdx = useX ? (Math.random() - 0.5) * intensity : 0;
                 const bdy = useY ? (Math.random() - 0.5) * intensity : 0;
                 btn.style.transform = `translate(${bdx}px, ${bdy}px)`;
@@ -241,153 +119,94 @@ function startPerturbation(type) {
 function stopPerturbation() {
     if (animationId) cancelAnimationFrame(animationId);
     container.style.transform = "";
-    document.querySelectorAll(".test-button").forEach(b => b.style.transform = "");
 }
-
-/* ============================
-   TRIAL LOGIC
-============================ */
 
 function loadTrial() {
     stopPerturbation();
     container.innerHTML = "";
-    
-    if (currentTrial >= trials.length) {
-        endExperiment();
-        return;
-    }
+    if (currentTrial >= trials.length) { endExperiment(); return; }
 
     const trial = trials[currentTrial];
+    document.getElementById("instructions").innerHTML = trial.activation === "press" ? "Tap <span style='color:green'>GREEN</span>" : "Release on <span style='color:green'>GREEN</span>";
+    document.getElementById("trial-info").textContent = `Trial ${currentTrial + 1} / ${trials.length}`;
 
-    // Update UI Text
-    if (trial.activation === "press") {
-        instructions.innerHTML = "Tap the <span style='color:green'>GREEN</span> button.";
-    } else {
-        instructions.innerHTML = "Drag & RELEASE on <span style='color:green'>GREEN</span>.";
-    }
-    trialInfo.textContent = `Trial ${currentTrial + 1} / ${trials.length}`;
-
-    // Create Buttons
     const targetIndex = Math.floor(Math.random() * 8);
     for (let i = 0; i < 8; i++) {
         const btn = document.createElement("div");
         btn.classList.add("test-button");
-        btn.dataset.index = i;
-
-        if (i === targetIndex) {
-            btn.classList.add("target");
-            btn.dataset.role = "target";
-        } else {
-            // Distractor colors
-            const colors = ["#e74c3c", "#3498db", "#e67e22", "#9b59b6", "#f1c40f"];
-            btn.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            btn.dataset.role = "distractor";
-        }
+        if (i === targetIndex) { btn.classList.add("target"); btn.dataset.role = "target"; }
+        else { btn.style.backgroundColor = ["#e74c3c", "#3498db", "#e67e22"][Math.floor(Math.random()*3)]; }
         container.appendChild(btn);
     }
-
     startPerturbation(trial.perturbation);
-    
-    // START TIMER (Total Task Time)
-    startTime = performance.now(); 
+    startTime = performance.now();
 }
 
-/* ============================
-   POINTER HANDLING (FIXED)
-============================ */
-
-// 1. POINTER DOWN
-document.addEventListener("pointerdown", e => {
-    // PREVENT DEFAULT: Critical for stopping scroll/zoom interference
-    e.preventDefault(); 
-
-    // CRITICAL FIX: Unlock pointer so 'elementFromPoint' works on Release
-    if (e.target.hasPointerCapture(e.pointerId)) {
-        e.target.releasePointerCapture(e.pointerId);
-    }
-
-    if (!startTime) return;
-    const trial = trials[currentTrial];
-
-    // PRESS MODE CHECK
-    if (trial.activation === "press") {
-        const el = document.elementFromPoint(e.clientX, e.clientY);
-        const btn = el?.closest('.test-button'); 
-
-        if (btn && btn.dataset.role === "target") {
-            registerResponse("hit", btn.dataset.index, true); 
-        } else if (btn) {
-            registerResponse("miss", btn.dataset.index, false);
-        } else {
-            registerResponse("miss", "bg", false);
-        }
-    }
-});
-
-// 2. POINTER UP
-document.addEventListener("pointerup", e => {
+function handlePointer(e, type) {
     e.preventDefault();
-    if (!startTime) return;
+    if (e.target.hasPointerCapture(e.pointerId)) e.target.releasePointerCapture(e.pointerId);
+    
     const trial = trials[currentTrial];
+    if (trial.activation !== type) return;
 
-    // RELEASE MODE CHECK
-    if (trial.activation === "release") {
-        const el = document.elementFromPoint(e.clientX, e.clientY);
-        const btn = el?.closest('.test-button');
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const btn = el?.closest('.test-button');
+    const isHit = btn && btn.dataset.role === "target";
 
-        if (btn && btn.dataset.role === "target") {
-            registerResponse("hit", btn.dataset.index, true);
-        } else if (btn) {
-            registerResponse("miss", btn.dataset.index, false);
-        } else {
-            registerResponse("miss", "bg", false);
-        }
-    }
-});
+    processInteraction(isHit, btn, e.clientX, e.clientY);
+}
 
-/* ============================
-   DATA LOGGING
-============================ */
-
-function registerResponse(outcome, index, isSuccess) {
+function processInteraction(isHit, btn, clickX, clickY) {
     const now = performance.now();
-    const rt = now - startTime; // Time from TRIAL START to Event
+    const rt = now - startTime;
     const trial = trials[currentTrial];
+    let accuracy = 0, fittsID = 0;
 
-    // Log the event
+    if (isHit) {
+        const rect = btn.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const distFromCenter = Math.sqrt(Math.pow(clickX - cx, 2) + Math.pow(clickY - cy, 2));
+        const maxPossibleDist = Math.sqrt(Math.pow(rect.width/2, 2) + Math.pow(rect.height/2, 2));
+        accuracy = Math.max(0, 100 * (1 - (distFromCenter / maxPossibleDist)));
+
+        // Fitts Law ID: log2(D/W + 1)
+        const screenCX = window.innerWidth / 2;
+        const screenCY = window.innerHeight / 2;
+        const amplitude = Math.sqrt(Math.pow(cx - screenCX, 2) + Math.pow(cy - screenCY, 2));
+        fittsID = Math.log2((amplitude / rect.width) + 1);
+    }
+
     results.push({
         trial: currentTrial + 1,
-        activation: trial.activation,
-        perturbation: trial.perturbation,
-        outcome: outcome,
-        targetIndex: index,
-        rt: rt.toFixed(2)
+        mode: trial.activation,
+        motion: trial.perturbation,
+        outcome: isHit ? "hit" : "miss",
+        rt: rt.toFixed(2),
+        accuracy: isHit ? accuracy.toFixed(2) : "0.00",
+        id: isHit ? fittsID.toFixed(2) : "N/A"
     });
 
-    if (isSuccess) {
-        // SUCCESS: Move to next trial
+    if (isHit) {
         currentTrial++;
-        setTimeout(loadTrial, 250); 
+        setTimeout(loadTrial, 300);
     } else {
-        // ERROR: Flash red, but KEEP TIMER RUNNING
         document.body.style.backgroundColor = "#ffe6e6";
         setTimeout(() => document.body.style.backgroundColor = "#f4f4f4", 100);
     }
 }
 
+document.addEventListener("pointerdown", e => handlePointer(e, "press"));
+document.addEventListener("pointerup", e => handlePointer(e, "release"));
+
 function endExperiment() {
     stopPerturbation();
-    uiContainer.style.display = "none";
-    resultsArea.style.display = "block";
-
-    let csvContent = "Trial,Mode,Motion,Outcome,Index,RT_ms\n";
-    results.forEach(r => {
-        csvContent += `${r.trial},${r.activation},${r.perturbation},${r.outcome},${r.targetIndex},${r.rt}\n`;
-    });
-
-    resultsText.value = csvContent;
+    document.getElementById("ui-container").style.display = "none";
+    document.getElementById("results-area").style.display = "block";
+    let csv = "Trial,Mode,Motion,Outcome,RT_ms,Accuracy_Pct,Fitts_ID\n";
+    results.forEach(r => csv += `${r.trial},${r.mode},${r.motion},${r.outcome},${r.rt},${r.accuracy},${r.id}\n`);
+    resultsText.value = csv;
 }
-
 </script>
 
 </body>
