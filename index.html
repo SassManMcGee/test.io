@@ -12,7 +12,7 @@ body {
     text-align: center;
     padding: 20px;
     user-select: none;
-    /* CRITICAL FIX: Prevents scrolling/zooming so you can drag anywhere */
+    /* Prevents scrolling/zooming so you can drag anywhere */
     touch-action: none; 
     overflow: hidden;
 }
@@ -37,6 +37,8 @@ body {
     max-width: 360px;
     margin: 20px auto;
     will-change: transform;
+    /* Ensure clicks between buttons are detected on the container */
+    padding: 10px; 
 }
 
 .test-button {
@@ -54,6 +56,8 @@ body {
 }
 
 #results {
+    /* HIDDEN UNTIL END */
+    display: none; 
     margin-top: 30px;
     text-align: left;
     font-family: monospace;
@@ -61,7 +65,7 @@ body {
     background: white;
     padding: 10px;
     border-radius: 8px;
-    height: 150px;
+    height: 300px;
     overflow-y: scroll;
     border: 1px solid #ccc;
     white-space: pre;
@@ -75,17 +79,15 @@ body {
 <div id="instructions"></div>
 <div id="trial-info"></div>
 <div id="button-container"></div>
-<div id="results">Results will appear here...</div>
+<div id="results"></div>
 
 <script>
 /* ============================
    CONFIG
 ============================ */
 
-// 2 Activation Types
 const ACTIVATION = ["press", "release"];
 
-// 7 Motion Conditions (as requested)
 const PERTURBATION = [
     "null",       // Baseline
     "screen-x",   // Screen Shake X
@@ -96,10 +98,8 @@ const PERTURBATION = [
     "button-xy"   // Button Shake X+Y
 ];
 
-// Generate Trial Queue (Fully Crossed)
 const trials = [];
-// We can repeat the block to have more data points per condition if desired. 
-// For now, 1 block = 2 * 7 = 14 trials.
+// 1 Block = 14 Trials
 ACTIVATION.forEach(a => {
     PERTURBATION.forEach(p => trials.push({ activation: a, perturbation: p }));
 });
@@ -126,7 +126,6 @@ const resultsDiv = document.getElementById("results");
 ============================ */
 
 function randomColor() {
-    // Exclude greenish colors to avoid confusion
     const colors = ["#e74c3c", "#3498db", "#e67e22", "#9b59b6", "#f1c40f", "#34495e"];
     return colors[Math.floor(Math.random() * colors.length)];
 }
@@ -134,45 +133,47 @@ function randomColor() {
 function stopPerturbation() {
     if (animationId) cancelAnimationFrame(animationId);
     container.style.transform = "";
-    // Reset individual button transforms
-    const buttons = document.querySelectorAll(".test-button");
-    if(buttons) buttons.forEach(b => b.style.transform = "");
+    document.querySelectorAll(".test-button").forEach(b => b.style.transform = "");
 }
 
 /* ============================
-   PERTURBATION ENGINE
+   VIBRATION ENGINE (FIXED)
 ============================ */
 
 function startPerturbation(type) {
     if (type === "null") return;
 
-    let t = 0;
-
     function animate() {
-        // Speed of oscillation
-        t += 0.08; 
+        // VIBRATION SETTINGS
+        // High intensity jitter (pixels)
+        const intensity = 6; 
 
-        // Amplitude (Pixels)
-        const amp = 8; 
+        // Generate random jitter (noise) instead of sine waves
+        // This creates a "shaking" effect rather than "floating"
+        const jitterX = (Math.random() - 0.5) * intensity;
+        const jitterY = (Math.random() - 0.5) * intensity;
 
-        // Determine Axes
         const useX = type.includes("x");
         const useY = type.includes("y");
 
-        // Calculate offsets
-        const dx = useX ? Math.sin(t * 2) * amp : 0;
-        const dy = useY ? Math.cos(t * 1.5) * amp : 0; // Distinct frequencies for chaotic feel in XY
+        const dx = useX ? jitterX : 0;
+        const dy = useY ? jitterY : 0;
 
+        // 1. Screen Shake (Moves the whole container)
         if (type.startsWith("screen")) {
             container.style.transform = `translate(${dx}px, ${dy}px)`;
         }
 
+        // 2. Button Shake (Moves buttons individually)
         if (type.startsWith("button")) {
-            document.querySelectorAll(".test-button").forEach((btn, i) => {
-                // Add phase offset based on index so they don't move in unison (jitter effect)
-                const phase = i * 0.5; 
-                const bdx = useX ? Math.sin((t * 2) + phase) * amp : 0;
-                const bdy = useY ? Math.cos((t * 1.5) + phase) * amp : 0;
+            document.querySelectorAll(".test-button").forEach((btn) => {
+                // Each button gets its own random jitter for chaotic vibration
+                const bJitterX = (Math.random() - 0.5) * intensity;
+                const bJitterY = (Math.random() - 0.5) * intensity;
+                
+                const bdx = useX ? bJitterX : 0;
+                const bdy = useY ? bJitterY : 0;
+                
                 btn.style.transform = `translate(${bdx}px, ${bdy}px)`;
             });
         }
@@ -190,7 +191,7 @@ function startPerturbation(type) {
 function loadTrial() {
     stopPerturbation();
     container.innerHTML = "";
-    startTime = null;
+    startTime = null; // Reset timer for new trial
 
     if (currentTrial >= trials.length) {
         endExperiment();
@@ -199,7 +200,7 @@ function loadTrial() {
 
     const trial = trials[currentTrial];
 
-    // Set Text
+    // Instructions
     if (trial.activation === "press") {
         instructions.innerHTML = "Tap the <span style='color:green'>GREEN</span> button.";
     } else {
@@ -231,46 +232,54 @@ function loadTrial() {
 }
 
 /* ============================
-   POINTER HANDLING (FIXED)
+   POINTER HANDLING (LOGIC FIXES)
 ============================ */
 
-// Global Pointer Down: Starts Timer
+// 1. POINTER DOWN
 document.addEventListener("pointerdown", e => {
-    // Always start time on first contact, regardless of where
+    // Start time on first touch of the trial
     if (!startTime) startTime = performance.now();
 
     const trial = trials[currentTrial];
     
-    // IF PRESS MODE: Check immediately if we hit the target
+    // PRESS MODE LOGIC
     if (trial.activation === "press") {
         const el = document.elementFromPoint(e.clientX, e.clientY);
-        const btn = el?.closest('.test-button'); // Handle clicking inner elements/borders
+        const btn = el?.closest('.test-button'); 
 
         if (btn && btn.dataset.role === "target") {
-            registerResponse("hit", btn.dataset.index, false);
+            // HIT: Log and End Trial
+            registerResponse("hit", btn.dataset.index, true); 
+        } else {
+            // MISS: Log and Continue Trial
+            const index = btn ? btn.dataset.index : "bg";
+            registerResponse("miss", index, false);
         }
     }
 });
 
-// Global Pointer Up: Handles Release Logic
+// 2. POINTER UP
 document.addEventListener("pointerup", e => {
     const trial = trials[currentTrial];
     
-    // IF RELEASE MODE: Check where we let go
+    // RELEASE MODE LOGIC
     if (trial.activation === "release") {
-        if (!startTime) return; // Ignore if they didn't press down first
+        if (!startTime) return; // User hasn't clicked down yet
 
-        // Calculate what is under the finger right now
         const el = document.elementFromPoint(e.clientX, e.clientY);
         const btn = el?.closest('.test-button');
 
-        const isTarget = btn && btn.dataset.role === "target";
-
-        if (isTarget) {
-            registerResponse("hit", btn.dataset.index, false);
+        if (btn && btn.dataset.role === "target") {
+            // HIT: Log and End Trial
+            registerResponse("hit", btn.dataset.index, true);
         } else {
-            // In release tasks, releasing on the wrong thing is usually a Miss
-            registerResponse("miss", btn ? btn.dataset.index : "background", true);
+            // MISS: Log and Continue Trial
+            const index = btn ? btn.dataset.index : "bg";
+            registerResponse("miss", index, false);
+            
+            // In release mode, a miss usually means they let go. 
+            // We reset startTime so they have to 'click-down' again to start a new attempt.
+            startTime = null; 
         }
     }
 });
@@ -279,11 +288,9 @@ document.addEventListener("pointerup", e => {
    LOGGING & NEXT
 ============================ */
 
-function registerResponse(outcome, index, isMiss) {
-    if (!startTime) return; // Safety
-
-    stopPerturbation();
-    const rt = performance.now() - startTime;
+function registerResponse(outcome, index, endTrial) {
+    const now = performance.now();
+    const rt = startTime ? (now - startTime) : 0;
     const trial = trials[currentTrial];
 
     // Log data
@@ -292,27 +299,20 @@ function registerResponse(outcome, index, isMiss) {
         activation: trial.activation,
         perturbation: trial.perturbation,
         outcome: outcome,
+        targetIndex: index,
         rt: rt.toFixed(2)
     });
 
-    // Update table view
-    updateResultsView();
-
-    // Next Trial
-    currentTrial++;
-    setTimeout(loadTrial, 500); // Short delay before next
-}
-
-function updateResultsView() {
-    let header = "Trial | Mode    | Motion    | RT (ms) | Outcome\n";
-    header += "-----------------------------------------------------\n";
-    const rows = results.map(r => 
-        `${r.trial.toString().padEnd(5)} | ${r.activation.padEnd(7)} | ${r.perturbation.padEnd(9)} | ${r.rt.padEnd(7)} | ${r.outcome}`
-    ).join("\n");
-    
-    resultsDiv.textContent = header + rows;
-    // Auto scroll to bottom
-    resultsDiv.scrollTop = resultsDiv.scrollHeight; 
+    if (endTrial) {
+        // Success! Move to next trial.
+        currentTrial++;
+        // Short delay for visual feedback
+        setTimeout(loadTrial, 200); 
+    } else {
+        // Miss! Shake screen or flash background (optional visual feedback)
+        document.body.style.backgroundColor = "#ffe6e6";
+        setTimeout(() => document.body.style.backgroundColor = "#f4f4f4", 100);
+    }
 }
 
 /* ============================
@@ -323,7 +323,21 @@ function endExperiment() {
     stopPerturbation();
     container.innerHTML = "<h3>Experiment Complete</h3>";
     instructions.textContent = "Thank you.";
-    trialInfo.textContent = "Copy the data below:";
+    trialInfo.textContent = "";
+
+    // Show Results Table
+    const tableHeader = "Trial | Mode    | Motion    | Outcome | Index | RT (ms)\n" +
+                        "--------------------------------------------------------\n";
+    
+    const rows = results.map(r => 
+        `${r.trial.toString().padEnd(5)} | ${r.activation.padEnd(7)} | ${r.perturbation.padEnd(9)} | ${r.outcome.padEnd(7)} | ${r.targetIndex.toString().padEnd(5)} | ${r.rt}`
+    ).join("\n");
+
+    resultsDiv.style.display = "block";
+    resultsDiv.textContent = tableHeader + rows;
+    
+    // Auto scroll to bottom
+    resultsDiv.scrollTop = resultsDiv.scrollHeight; 
 }
 
 /* ============================
