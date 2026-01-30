@@ -10,304 +10,256 @@ body {
     font-family: Arial, sans-serif;
     background: #f4f4f4;
     text-align: center;
-    padding: 30px;
-    overflow: hidden;
+    padding: 20px;
+    user-select: none;
 }
 
-#trial-info { font-size: 18px; }
-#condition-info { font-size: 14px; color: #555; margin-bottom: 20px; }
+#instructions {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+#trial-info {
+    font-size: 16px;
+    margin-bottom: 15px;
+}
 
 #button-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    max-width: 600px;
-    margin: 60px auto;
+    grid-template-rows: repeat(4, 1fr);
+    gap: 15px;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .test-button {
     height: 80px;
-    font-size: 18px;
-    border: none;
     border-radius: 12px;
-    color: white;
+    border: none;
     touch-action: none;
 }
 
-.red { background:#dc3545; }
-.blue { background:#007bff; }
-.orange { background:#fd7e14; }
-.purple { background:#6f42c1; }
-
-.target { background:#28a745; }
-
-#feedback { margin-top:20px; font-weight:bold; }
+.target {
+    background-color: green;
+}
 
 #results {
-    margin-top:40px;
-    max-width:800px;
-    margin-left:auto;
-    margin-right:auto;
-    background:white;
-    padding:15px;
-    border-radius:8px;
-    font-family:monospace;
-    font-size:13px;
-    white-space:pre;
-}
-
-/* Motion */
-@keyframes shakeX {
-    0%{transform:translateX(0)}
-    25%{transform:translateX(-6px)}
-    50%{transform:translateX(6px)}
-    75%{transform:translateX(-6px)}
-    100%{transform:translateX(0)}
-}
-@keyframes shakeY {
-    0%{transform:translateY(0)}
-    25%{transform:translateY(-6px)}
-    50%{transform:translateY(6px)}
-    75%{transform:translateY(-6px)}
-    100%{transform:translateY(0)}
-}
-@keyframes shakeXY {
-    0%{transform:translate(0,0)}
-    25%{transform:translate(-6px,6px)}
-    50%{transform:translate(6px,-6px)}
-    75%{transform:translate(-6px,-6px)}
-    100%{transform:translate(0,0)}
+    margin-top: 30px;
+    text-align: left;
+    font-family: monospace;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Touch Interaction Experiment</h1>
+<h2>Touch Interaction Study</h2>
+<div id="instructions"></div>
 <div id="trial-info"></div>
-<div id="condition-info"></div>
 <div id="button-container"></div>
-<div id="feedback"></div>
 <div id="results"></div>
 
 <script>
-/* =============================
-   Constants
-============================= */
+/* ============================
+   EXPERIMENT CONFIG
+============================ */
 
-const EXPERIMENT_VERSION = "v3.1-hit-test-fix";
-const participantID = crypto.randomUUID();
-
-const activations = ["press","release"];
-const motions = [
-    "null","screen-x","button-x",
-    "screen-y","button-y",
-    "screen-xy","button-xy"
+const ACTIVATION = ["press", "release"];
+const PERTURBATION = [
+    "screen-x",
+    "button-x",
+    "null",
+    "screen-y",
+    "button-y",
+    "screen-xy",
+    "button-xy"
 ];
 
-let trials = [];
-activations.forEach(a => motions.forEach(m => trials.push({activation:a,motion:m})));
-trials.sort(() => Math.random() - 0.5);
+const trials = [];
+ACTIVATION.forEach(a => {
+    PERTURBATION.forEach(p => {
+        trials.push({ activation: a, perturbation: p });
+    });
+});
 
-/* =============================
-   State
-============================= */
+trials.sort(() => Math.random() - 0.5);
 
 let currentTrial = 0;
 let startTime = null;
-let downTime = null;
-let trialActive = true;
+let pointerDownTarget = null;
 let firstDistractor = null;
-let missCount = 0;
 
 const results = [];
 
-/* =============================
+/* ============================
    DOM
-============================= */
+============================ */
 
+const instructions = document.getElementById("instructions");
 const trialInfo = document.getElementById("trial-info");
-const conditionInfo = document.getElementById("condition-info");
-const buttonContainer = document.getElementById("button-container");
-const feedback = document.getElementById("feedback");
+const container = document.getElementById("button-container");
 const resultsDiv = document.getElementById("results");
 
-/* =============================
-   Motion
-============================= */
+/* ============================
+   UTILITIES
+============================ */
 
-function applyMotion(el, cond) {
-    el.style.animation = "";
-    document.body.style.animation = "";
-    if (cond === "null") return;
-
-    const axis = cond.split("-")[1];
-    const anim = axis === "x" ? "shakeX" :
-                 axis === "y" ? "shakeY" : "shakeXY";
-
-    cond.startsWith("screen")
-        ? document.body.style.animation = `${anim} 0.4s infinite`
-        : el.style.animation = `${anim} 0.4s infinite`;
+function randomColor() {
+    const colors = ["red", "blue", "orange", "purple", "pink", "brown"];
+    return colors[Math.floor(Math.random() * colors.length)];
 }
 
-function clearMotion() {
-    document.body.style.animation = "";
+function applyPerturbation(type) {
+    container.style.transform = "";
+
+    if (type.startsWith("screen")) {
+        const dx = type.includes("x") ? Math.random() * 10 - 5 : 0;
+        const dy = type.includes("y") ? Math.random() * 10 - 5 : 0;
+        container.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
 }
 
-/* =============================
-   HIT TEST (CRITICAL FIX)
-============================= */
+function shakeButton(btn, type) {
+    if (!type.startsWith("button")) return;
 
-function releasedOnButton(event, button) {
-    const rect = button.getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-
-    return (
-        x >= rect.left &&
-        x <= rect.right &&
-        y >= rect.top &&
-        y <= rect.bottom
-    );
+    const dx = type.includes("x") ? Math.random() * 6 - 3 : 0;
+    const dy = type.includes("y") ? Math.random() * 6 - 3 : 0;
+    btn.style.transform = `translate(${dx}px, ${dy}px)`;
 }
 
-/* =============================
-   Trial Loader
-============================= */
+/* ============================
+   LOAD TRIAL
+============================ */
 
 function loadTrial() {
-    trialActive = true;
-    buttonContainer.innerHTML = "";
-    feedback.textContent = "";
-    clearMotion();
+    container.innerHTML = "";
+    firstDistractor = null;
+    pointerDownTarget = null;
+    startTime = null;
 
     if (currentTrial >= trials.length) {
         endExperiment();
         return;
     }
 
-    startTime = null;
-    downTime = null;
-    firstDistractor = null;
-    missCount = 0;
-
     const trial = trials[currentTrial];
-    trialInfo.textContent = `Trial ${currentTrial+1} / ${trials.length}`;
-    conditionInfo.textContent = `${trial.activation.toUpperCase()} × ${trial.motion.toUpperCase()}`;
+    trialInfo.textContent = `Trial ${currentTrial + 1} / ${trials.length}`;
 
-    const colors = ["red","blue","orange","purple"];
-    const targetIndex = Math.floor(Math.random()*8);
-    const buttons = [];
+    instructions.textContent =
+        trial.activation === "press"
+        ? "Press the GREEN button. Avoid all other colors."
+        : "Press anywhere, RELEASE on the GREEN button. Avoid all other colors.";
 
-    for (let i=0;i<8;i++) {
-        const btn = document.createElement("button");
-        btn.className = "test-button";
-        btn.dataset.index = i;
+    applyPerturbation(trial.perturbation);
+
+    const targetIndex = Math.floor(Math.random() * 8);
+
+    for (let i = 0; i < 8; i++) {
+        const btn = document.createElement("div");
+        btn.classList.add("test-button");
 
         if (i === targetIndex) {
             btn.classList.add("target");
-            btn.textContent = trial.activation === "press" ? "Press" : "Release";
+            btn.dataset.role = "target";
         } else {
-            const c = colors[Math.floor(Math.random()*colors.length)];
-            btn.classList.add(c);
-            btn.dataset.color = c;
+            btn.style.backgroundColor = randomColor();
+            btn.dataset.role = "distractor";
         }
 
-        btn.addEventListener("pointerdown", () => {
-            if (!trialActive) return;
-            if (i !== targetIndex && !firstDistractor) {
-                firstDistractor = { index:i, color:btn.dataset.color };
-            }
-        });
+        btn.dataset.index = i;
+        shakeButton(btn, trial.perturbation);
 
-        applyMotion(btn, trial.motion);
-        buttonContainer.appendChild(btn);
-        buttons.push(btn);
-    }
-
-    const targetButton = buttons[targetIndex];
-
-    if (trial.activation === "press") {
-        targetButton.addEventListener("pointerdown", e => {
-            e.preventDefault();
-            downTime = performance.now();
-            startTime = downTime;
-            registerResponse("pointerdown", targetIndex);
-        });
-    } else {
-        document.addEventListener("pointerdown", globalDown);
-        document.addEventListener("pointerup", globalUp);
-
-        function globalDown() {
-            if (!trialActive) return;
-            downTime = performance.now();
-            startTime = downTime;
-        }
-
-        function globalUp(e) {
-            if (!trialActive) return;
-
-            if (releasedOnButton(e, targetButton)) {
-                registerResponse("pointerup", targetIndex);
-            } else {
-                missCount++;
-            }
-
-            document.removeEventListener("pointerdown", globalDown);
-            document.removeEventListener("pointerup", globalUp);
-        }
+        container.appendChild(btn);
     }
 }
 
-/* =============================
-   Register Response
-============================= */
+/* ============================
+   GLOBAL POINTER HANDLING
+============================ */
 
-function registerResponse(eventType, targetIndex) {
-    if (!trialActive) return;
-    trialActive = false;
+document.addEventListener("pointerdown", e => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
 
-    const now = performance.now();
-    const rt = now - startTime;
-    const hold = downTime ? now - downTime : "NA";
+    if (!startTime) startTime = performance.now();
+
+    if (el && el.classList.contains("test-button")) {
+        pointerDownTarget = el;
+
+        if (el.dataset.role === "distractor" && !firstDistractor) {
+            firstDistractor = el.dataset.index;
+        }
+
+        if (trials[currentTrial].activation === "press" &&
+            el.dataset.role === "target") {
+            registerResponse("pointerdown", el.dataset.index);
+        }
+    }
+});
+
+document.addEventListener("pointerup", e => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+
+    if (trials[currentTrial].activation !== "release") return;
+
+    const correct = el &&
+        el.classList.contains("test-button") &&
+        el.dataset.role === "target";
+
+    registerResponse(
+        "pointerup",
+        el ? el.dataset.index : null,
+        !correct
+    );
+});
+
+/* ============================
+   LOG RESPONSE
+============================ */
+
+function registerResponse(event, index, miss = false) {
+    const rt = performance.now() - startTime;
+    const trial = trials[currentTrial];
 
     results.push({
-        participantID,
-        version: EXPERIMENT_VERSION,
-        trial: currentTrial+1,
-        activation: trials[currentTrial].activation,
-        motion: trials[currentTrial].motion,
-        targetIndex,
-        targetRow: Math.floor(targetIndex/2),
-        targetCol: targetIndex % 2,
-        eventType,
-        reactionTime: rt.toFixed(2),
-        holdDuration: hold !== "NA" ? hold.toFixed(2) : "NA",
-        firstDistractorIndex: firstDistractor ? firstDistractor.index : "NA",
-        firstDistractorColor: firstDistractor ? firstDistractor.color : "NA",
-        misses: missCount
+        trial: currentTrial + 1,
+        activation: trial.activation,
+        perturbation: trial.perturbation,
+        event,
+        responseIndex: index,
+        miss,
+        firstDistractor,
+        rt: rt.toFixed(2)
     });
 
-    clearMotion();
     currentTrial++;
-    setTimeout(loadTrial,700);
+    setTimeout(loadTrial, 600);
 }
 
-/* =============================
-   End
-============================= */
+/* ============================
+   END
+============================ */
 
 function endExperiment() {
-    trialInfo.textContent = "Experiment Complete";
-    buttonContainer.innerHTML = "";
+    container.innerHTML = "";
+    instructions.textContent = "Experiment complete";
 
-    let csv = "participant,version,trial,activation,motion,targetIndex,targetRow,targetCol,event,rt_ms,hold_ms,firstDistractorIndex,firstDistractorColor,misses\n";
+    let txt = "trial | activation | perturbation | event | index | miss | firstDistractor | RT\n";
+    txt += "-------------------------------------------------------------------------------\n";
+
     results.forEach(r => {
-        csv += `${r.participantID},${r.version},${r.trial},${r.activation},${r.motion},${r.targetIndex},${r.targetRow},${r.targetCol},${r.eventType},${r.reactionTime},${r.holdDuration},${r.firstDistractorIndex},${r.firstDistractorColor},${r.misses}\n`;
+        txt += `${r.trial} | ${r.activation} | ${r.perturbation} | ${r.event} | ${r.responseIndex} | ${r.miss} | ${r.firstDistractor} | ${r.rt}\n`;
     });
 
-    resultsDiv.textContent = csv;
+    resultsDiv.textContent = txt;
 }
+
+/* ============================
+   START
+============================ */
 
 loadTrial();
 </script>
